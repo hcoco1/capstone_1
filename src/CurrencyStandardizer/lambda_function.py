@@ -1,60 +1,114 @@
 import json
+import io 
 import boto3
 import csv
-import io
-import os
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 def lambda_handler(event, context):
     s3 = boto3.client('s3')
     
-    # TODO: Replace placeholders with actual S3 bucket and DynamoDB table names
-    processed_bucket = 'YOUR-PROCESSED-PROPERTIES-S3-BUCKET-NAME'
-    table_name = 'YOUR-DYNAMODB-TABLE-NAME'
+    # Replace placeholders with actual S3 bucket and DynamoDB table names
+    processed_bucket = 'capstone1stack-processedproperties39d0d984-t7zlp8uqn2gp'
+    table_name = 'Capstone1Stack-PropertiesTable324F3970-VKP0NL21YIZD'
 
-    # Retrieving the S3 object based on event triggers
-    raw_bucket = event['Records'][0]['s3']['bucket']['name']
-    csv_filename = event['Records'][0]['s3']['object']['key']
-    obj = s3.get_object(Bucket=raw_bucket, Key=csv_filename)
-    csv_data = obj['Body'].read().decode('utf-8').splitlines()
-    
-    processed_rows = []
-    required_keys = ['zpid', 'streetAddress', 'unit', 'bedrooms', 
-                     'bathrooms', 'homeType', 'priceChange', 'zipcode', 'city', 
-                     'state', 'country', 'livingArea', 'taxAssessedValue', 
-                     'priceReduction', 'datePriceChanged', 'homeStatus', 'price', 'currency']
-    
-    # Parsing CSV data
-    reader = csv.DictReader(csv_data)
-    for row in reader:
-        filtered_row = {key: row[key] for key in required_keys if key in row}
-
-        # TODO: Implement the currency conversion logic here
+    try:
+        # Log the event details
+        print("Event: ", json.dumps(event))
         
-        processed_rows.append(filtered_row)
-    
-    # TODO: Implement logic to upload processed data to DynamoDB
-    # TODO: Implement logic to move processed files to the processed bucket
-    if processed_rows:
-        upload_to_dynamodb(table_name, processed_rows)
-        move_file_to_processed_bucket(raw_bucket, processed_bucket, csv_filename)
-    
-    return {
-        'statusCode': 200,
-        'body': json.dumps('Currency Standardization complete!')
-    }
-    
-# TODO: Complete the currency conversion function
+        # Retrieving the S3 object based on event triggers
+        raw_bucket = event['Records'][0]['s3']['bucket']['name']
+        csv_filename = event['Records'][0]['s3']['object']['key']
+        
+        # Log the bucket name and object key
+        print(f"Bucket: {raw_bucket}, Key: {csv_filename}")
+        
+        obj = s3.get_object(Bucket=raw_bucket, Key=csv_filename)
+        csv_data = obj['Body'].read().decode('utf-8').splitlines()
+        
+        processed_rows = []
+        required_keys = ['zpid', 'streetAddress', 'unit', 'bedrooms', 
+                         'bathrooms', 'homeType', 'priceChange', 'zipcode', 'city', 
+                         'state', 'country', 'livingArea', 'taxAssessedValue', 
+                         'priceReduction', 'datePriceChanged', 'homeStatus', 'price', 'currency']
+        
+        # Parsing CSV data
+        reader = csv.DictReader(csv_data)
+        for row in reader:
+            filtered_row = {key: row[key] for key in required_keys if key in row}
+            
+            # Implement the currency conversion logic here
+            if 'price' in filtered_row and 'currency' in filtered_row:
+                try:
+                    original_price = Decimal(filtered_row['price'])
+                    filtered_row['price'] = convert_currency(original_price, filtered_row['currency'])
+                    filtered_row['currency'] = 'USD'  # Update currency to USD after conversion
+                except (InvalidOperation, ValueError) as e:
+                    print(f"Error converting price for zpid {row.get('zpid', 'unknown')}: {e}")
+                    continue
+            
+            processed_rows.append(filtered_row)
+        
+        # Debugging: Print processed rows before uploading
+        print("Processed Rows: ", processed_rows)
+        
+        # Upload processed data to DynamoDB
+        if processed_rows:
+            upload_to_dynamodb(table_name, processed_rows)
+            # Write processed CSV data to S3
+            upload_processed_data_to_s3(processed_bucket, csv_filename, processed_rows)
+            move_file_to_processed_bucket(raw_bucket, processed_bucket, csv_filename)
+        
+        return {
+            'statusCode': 200,
+            'body': json.dumps('Currency Standardization complete!')
+        }
+
+    except Exception as e:
+        print(f"Error processing the file: {e}")
+        return {
+            'statusCode': 500,
+            'body': json.dumps(f"Error processing the file: {e}")
+        }
+
+# Complete the currency conversion function
 def convert_currency(price, currency):
-    # Example: return price * 0.75 if currency == 'CAD' else price
-    pass  # Remove 'pass' and replace with your implementation of conversion based on currency type
+    conversion_rates = {
+        'CAD': Decimal('0.75'),  # Example conversion rate from CAD to USD
+        'USD': Decimal('1.00')
+    }
+    return price * conversion_rates.get(currency, Decimal('1.00'))
 
-# TODO: Complete the function to upload data to DynamoDB
-# Check the AWS Documentation: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/dynamodb/table/index.html
+# Complete the function to upload data to DynamoDB
 def upload_to_dynamodb(table_name, items):
-    pass  # Remove 'pass' and replace with your implementation of the DynamoDB batch writer to upload items
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table(table_name)
+    
+    with table.batch_writer() as batch:
+        for item in items:
+            # Debugging: Print each item being uploaded
+            print("Uploading item: ", item)
+            batch.put_item(Item=item)
 
-# TODO: Complete the function to move files within S3
-# Check the AWS Documentation: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3.html
+# Function to upload processed CSV data to S3
+def upload_processed_data_to_s3(bucket_name, original_file_key, processed_rows):
+    s3 = boto3.client('s3')
+    processed_csv = convert_to_csv(processed_rows)
+    processed_file_key = f"processed_{original_file_key}"
+    
+    s3.put_object(Bucket=bucket_name, Key=processed_file_key, Body=processed_csv)
+    print(f"Processed file uploaded to {bucket_name}/{processed_file_key}")
+
+def convert_to_csv(data):
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=data[0].keys())
+    writer.writeheader()
+    writer.writerows(data)
+    return output.getvalue()
+
+# Complete the function to move files within S3
 def move_file_to_processed_bucket(raw_bucket_name, processed_bucket_name, file_key):
-    pass  # Remove 'pass' and replace with your implementation of an S3 resource to copy and delete the original file
+    s3 = boto3.resource('s3')
+    copy_source = {'Bucket': raw_bucket_name, 'Key': file_key}
+    
+    s3.Object(processed_bucket_name, file_key).copy_from(CopySource=copy_source)
+    s3.Object(raw_bucket_name, file_key).delete()

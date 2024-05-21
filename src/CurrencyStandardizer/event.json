@@ -1,0 +1,14 @@
+{
+  "Records": [
+    {
+      "s3": {
+        "bucket": {
+          "name": "capstone1stack-rawpropertieseb3d18db-lcux5r9pdt5n"
+        },
+        "object": {
+          "key": "mock_data.csv"
+        }
+      }
+    }
+  ]
+}

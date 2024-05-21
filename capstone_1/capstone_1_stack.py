@@ -10,7 +10,7 @@ from aws_cdk import (
 
 from constructs import Construct
 
-class PropertiesAppStack(Stack):
+class Capstone1Stack(Stack):
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -57,7 +57,7 @@ class PropertiesAppStack(Stack):
     def create_bucket(self, id):
         bucket = s3.Bucket(self, id,
                 removal_policy=RemovalPolicy.DESTROY,
-                auto_delete_objects=True
+                auto_delete_objects=False
         )
         
         return bucket

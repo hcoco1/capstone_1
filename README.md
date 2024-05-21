@@ -2,6 +2,15 @@
 
 ## Overview and Objectives
 
+## Video Overview
+
+Here is a video demonstration of the project:
+
+<video width="600" controls>
+  <source src="video.mp4" type="video/mp4">
+  Your browser does not support the video tag.
+</video>
+
 **Project Overview:**
 
 Welcome to the Currency Standardization Capstone Project. In this project, you will build a solution that automates the process of standardizing financial data across different currencies. Upon completion, 
