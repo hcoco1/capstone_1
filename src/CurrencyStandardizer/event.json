@@ -3,7 +3,7 @@
     {
       "s3": {
         "bucket": {
-          "name": "capstone1stack-rawpropertieseb3d18db-lcux5r9pdt5n"
+          "name": "capstone1stack-rawpropertieseb3d18db-0zbcz2kgk18i"
         },
         "object": {
           "key": "mock_data.csv"

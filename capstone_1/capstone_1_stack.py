@@ -15,13 +15,12 @@ class Capstone1Stack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # S3
+        # S3 Buckets
         buckets = {'raw_properties': None, 'processed_properties': None}
         for id in buckets:
             buckets[id] = self.create_bucket(id)
         
-        
-        # DYNAMODB
+        # DynamoDB Table
         table = dynamodb.Table(self, 'PropertiesTable',
             partition_key=dynamodb.Attribute(
                 name='zpid',
@@ -31,8 +30,7 @@ class Capstone1Stack(Stack):
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST
         )
         
-        
-        # LAMBDA   
+        # Lambda Function
         lambda_cn = aws_lambda.Function(self, 'CurrencyStandardizer',
             runtime=aws_lambda.Runtime.PYTHON_3_10,
             timeout=Duration.seconds(10),
@@ -40,24 +38,21 @@ class Capstone1Stack(Stack):
             code=aws_lambda.Code.from_asset("src/CurrencyStandardizer/")
         )
         
-        
-        # PERMISSIONS & EVENTS        
+        # Permissions & Event Notifications
         buckets['raw_properties'].add_event_notification(s3.EventType.OBJECT_CREATED, s3_notif.LambdaDestination(lambda_cn))        
         buckets['raw_properties'].grant_read_write(lambda_cn)
         buckets['processed_properties'].grant_read_write(lambda_cn)
         
         table.grant_write_data(lambda_cn)
         
-        
-        # ENVIRONMENTAL VARS
+        # Environment Variables
         lambda_cn.add_environment('RAW_PROPERTIES_BUCKET', buckets['raw_properties'].bucket_name)
         lambda_cn.add_environment('PROCESSED_PROPERTIES_BUCKET', buckets['processed_properties'].bucket_name)
         lambda_cn.add_environment('PROPERTIES_TABLE_NAME', table.table_name)
             
     def create_bucket(self, id):
         bucket = s3.Bucket(self, id,
-                removal_policy=RemovalPolicy.DESTROY,
-                auto_delete_objects=False
+            removal_policy=RemovalPolicy.DESTROY,
+            auto_delete_objects=True  # Ensure auto_delete_objects is set to True
         )
-        
         return bucket

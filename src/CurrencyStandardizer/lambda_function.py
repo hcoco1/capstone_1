@@ -7,9 +7,10 @@ from decimal import Decimal, InvalidOperation
 def lambda_handler(event, context):
     s3 = boto3.client('s3')
     
-    # Replace placeholders with actual S3 bucket and DynamoDB table names
-    processed_bucket = 'capstone1stack-processedproperties39d0d984-t7zlp8uqn2gp'
-    table_name = 'Capstone1Stack-PropertiesTable324F3970-VKP0NL21YIZD'
+    # Direct references for S3 bucket names and DynamoDB table name
+    raw_bucket = 'capstone1stack-rawpropertieseb3d18db-0zbcz2kgk18i'
+    processed_bucket = 'capstone1stack-processedproperties39d0d984-8qiiaclegnxp'
+    table_name = 'Capstone1Stack-PropertiesTable324F3970-1VOIGTHD4R145'
 
     try:
         # Log the event details
